@@ -654,9 +654,14 @@ class App(BaseApp):
             return
         
         g = self.game
-        # Very compact 2-line layout
-        status = f"SD:{g.stardate:.0f} E:{g.energy} SH:{g.shields}\n"
-        status += f"T:{g.torpedoes} K:{g.klingons_total} TL:{g.get_time_left():.0f} {g.get_condition()}"
+        # Compact layout with wider column (no wrapping)
+        status = f"SD:{g.stardate:.0f}\n"
+        status += f"E:{g.energy}\n"
+        status += f"SH:{g.shields}\n"
+        status += f"T:{g.torpedoes}\n"
+        status += f"K:{g.klingons_total}\n"
+        status += f"TL:{g.get_time_left():.0f}\n"
+        status += f"{g.get_condition()}"
         
         self.status_label.set_text(status)
 
@@ -665,9 +670,10 @@ class App(BaseApp):
         if not self.log_label:
             return
         
-        # Show last N messages (lots of space now)
-        display_msgs = self.message_log[-12:]
-        self.log_label.set_text("\n".join(display_msgs))
+        # Show only 5 messages with blank line at end for command line at Y=80
+        display_msgs = self.message_log[-5:]
+        # Add blank line after messages to separate from command
+        self.log_label.set_text("\n".join(display_msgs) + "\n")
 
     def update_command_display(self):
         """Update command input display."""
@@ -803,12 +809,33 @@ class App(BaseApp):
         # Create content area
         self.p.create_content()
         
-        # Create graphical SRS grid - 8x8 grid of tiny colored squares
-        # Each cell is 7x7 pixels = 56x56 total for the grid
+        # 3-COLUMN LAYOUT: (Log+Cmd) | Status | SRS
+        
+        # LEFT COLUMN: Message log and command input
+        # Message log - very short to fit command line
+        self.log_label = lvgl.label(self.p.content)
+        self.log_label.set_pos(2, 2)
+        self.log_label.set_width(150)
+        self.log_label.set_text("")
+        
+        # Command input - VERY HIGH UP! Position at Y=80
+        self.command_label = lvgl.label(self.p.content)
+        self.command_label.set_pos(2, 80)
+        self.command_label.set_width(150)
+        self.command_label.set_text(">_")
+        
+        # MIDDLE: Vertical status display
+        self.status_label = lvgl.label(self.p.content)
+        self.status_label.set_pos(155, 2)
+        self.status_label.set_width(75)
+        self.status_label.set_text("STATUS")
+        
+        # FAR RIGHT: Graphical SRS grid - all the way to right edge
+        # 8x8 grid of 8x8 pixel squares = 64x64 total
         self.srs_grid = []
-        cell_size = 7
-        start_x = 3
-        start_y = 3
+        cell_size = 8
+        start_x = 295  # Push to very right edge
+        start_y = 2
         
         for y in range(8):
             for x in range(8):
@@ -820,24 +847,6 @@ class App(BaseApp):
                 cell.set_style_border_width(0, 0)
                 cell.set_style_pad_all(0, 0)
                 self.srs_grid.append(cell)
-        
-        # Compact status display next to grid
-        self.status_label = lvgl.label(self.p.content)
-        self.status_label.set_pos(62, 3)
-        self.status_label.set_width(170)
-        self.status_label.set_text("STATUS")
-        
-        # Message log below grid - more space
-        self.log_label = lvgl.label(self.p.content)
-        self.log_label.set_pos(3, 62)
-        self.log_label.set_width(232)
-        self.log_label.set_text("")
-        
-        # Command input at bottom
-        self.command_label = lvgl.label(self.p.content)
-        self.command_label.set_pos(3, 205)
-        self.command_label.set_width(232)
-        self.command_label.set_text(">_")
         
         # Create menu bar
         self.p.create_menubar(["Help", "", "", "", "Exit"])
