@@ -505,7 +505,11 @@ class App(BaseApp):
         self.game = StarTrekGame()
         self.command_buffer = ""
         self.message_log = []
-        self.max_messages = 12
+        self.max_messages = 50
+        
+        # Command history for scrolling
+        self.command_history = []
+        self.history_index = -1
         
         # UI elements
         self.srs_grid = []  # 8x8 grid of small rectangles
@@ -527,6 +531,11 @@ class App(BaseApp):
 
     def execute_command(self, cmd):
         """Execute a game command."""
+        # Add to history
+        if cmd and cmd != "":
+            self.command_history.append(cmd)
+            self.history_index = -1
+        
         parts = cmd.upper().split()
         if not parts:
             return
@@ -614,14 +623,13 @@ class App(BaseApp):
             self.show_damage()
         
         elif command in ['HELP', '?']:
+            self.log("Commands:")
             self.log("NAV <c> <w>: Navigate")
-            self.log("SRS: Short Range Scan")
-            self.log("LRS: Long Range Scan")
             self.log("PHA <e>: Fire Phasers")
             self.log("TOR <c>: Fire Torpedo")
             self.log("SHE <a>: Set Shields")
-            self.log("STA: Status Report")
-            self.log("DAM: Damage Report")
+            self.log("SRS/LRS/STA/DAM: Info")
+            self.log("UP/DOWN: Command History")
         
         else:
             self.log(f"UNKNOWN: {command}")
@@ -654,13 +662,13 @@ class App(BaseApp):
             return
         
         g = self.game
-        # Compact layout with wider column (no wrapping)
-        status = f"SD:{g.stardate:.0f}\n"
-        status += f"E:{g.energy}\n"
-        status += f"SH:{g.shields}\n"
-        status += f"T:{g.torpedoes}\n"
-        status += f"K:{g.klingons_total}\n"
-        status += f"TL:{g.get_time_left():.0f}\n"
+        # Expanded labels for clarity
+        status = f"Stardate:\n{g.stardate:.0f}\n"
+        status += f"Energy:\n{g.energy}\n"
+        status += f"Shields:\n{g.shields}\n"
+        status += f"Torpedos:\n{g.torpedoes}\n"
+        status += f"Klingons:\n{g.klingons_total}\n"
+        status += f"Time:\n{g.get_time_left():.0f}\n"
         status += f"{g.get_condition()}"
         
         self.status_label.set_text(status)
@@ -772,9 +780,30 @@ class App(BaseApp):
             
             elif key == "\x1b":  # Escape
                 self.command_buffer = ""
+                self.history_index = -1
                 self.update_command_display()
             
-            elif key.startswith("`"):  # Special keys
+            elif key == "`UP":  # Arrow Up - previous command
+                if self.command_history:
+                    if self.history_index == -1:
+                        self.history_index = len(self.command_history) - 1
+                    elif self.history_index > 0:
+                        self.history_index -= 1
+                    self.command_buffer = self.command_history[self.history_index]
+                    self.update_command_display()
+            
+            elif key == "`DOWN":  # Arrow Down - next command
+                if self.command_history:
+                    if self.history_index >= 0:
+                        if self.history_index < len(self.command_history) - 1:
+                            self.history_index += 1
+                            self.command_buffer = self.command_history[self.history_index]
+                        else:
+                            self.history_index = -1
+                            self.command_buffer = ""
+                        self.update_command_display()
+            
+            elif key.startswith("`"):  # Other special keys
                 pass
             
             elif key == "\t":  # Tab
@@ -783,11 +812,24 @@ class App(BaseApp):
             else:  # Regular character
                 if len(self.command_buffer) < 20:
                     self.command_buffer += key
+                    self.history_index = -1
                     self.update_command_display()
         
-        # F1 for help
+        # F1 for SRS
         if self.badge.keyboard.f1():
-            self.execute_command("HELP")
+            self.execute_command("SRS")
+        
+        # F2 for LRS
+        if self.badge.keyboard.f2():
+            self.execute_command("LRS")
+        
+        # F3 for Status
+        if self.badge.keyboard.f3():
+            self.execute_command("STA")
+        
+        # F4 for Damage
+        if self.badge.keyboard.f4():
+            self.execute_command("DAM")
         
         # F5 to exit
         if self.badge.keyboard.f5():
@@ -824,17 +866,17 @@ class App(BaseApp):
         self.command_label.set_width(150)
         self.command_label.set_text(">_")
         
-        # MIDDLE: Vertical status display
+        # MIDDLE: Vertical status display (wider for full labels)
         self.status_label = lvgl.label(self.p.content)
         self.status_label.set_pos(155, 2)
-        self.status_label.set_width(75)
+        self.status_label.set_width(85)
         self.status_label.set_text("STATUS")
         
         # FAR RIGHT: Graphical SRS grid - all the way to right edge
         # 8x8 grid of 8x8 pixel squares = 64x64 total
         self.srs_grid = []
         cell_size = 8
-        start_x = 295  # Push to very right edge
+        start_x = 305  # Push to very right edge (adjusted for wider status)
         start_y = 2
         
         for y in range(8):
@@ -848,8 +890,8 @@ class App(BaseApp):
                 cell.set_style_pad_all(0, 0)
                 self.srs_grid.append(cell)
         
-        # Create menu bar
-        self.p.create_menubar(["Help", "", "", "", "Exit"])
+        # Create menu bar with function key labels
+        self.p.create_menubar(["SRS", "LRS", "Stat", "Dam", "Exit"])
         self.p.replace_screen()
         
         # Initialize game
@@ -859,7 +901,6 @@ class App(BaseApp):
         
         self.log(f"DESTROY {self.game.klingons_total} KLINGONS")
         self.log(f"{self.game.time_limit} DAYS, {self.game.starbases_total} BASES")
-        self.log("F1=HELP F5=EXIT")
         
         self.update_all_displays()
 
