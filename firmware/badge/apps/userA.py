@@ -662,13 +662,13 @@ class App(BaseApp):
             return
         
         g = self.game
-        # Expanded labels for clarity
-        status = f"Stardate:\n{g.stardate:.0f}\n"
-        status += f"Energy:\n{g.energy}\n"
-        status += f"Shields:\n{g.shields}\n"
-        status += f"Torpedos:\n{g.torpedoes}\n"
-        status += f"Klingons:\n{g.klingons_total}\n"
-        status += f"Time:\n{g.get_time_left():.0f}\n"
+        # Full word labels on single lines
+        status = f"Stardate: {g.stardate:.0f}\n"
+        status += f"Energy: {g.energy}\n"
+        status += f"Shields: {g.shields}\n"
+        status += f"Torpedos: {g.torpedoes}\n"
+        status += f"Klingons: {g.klingons_total}\n"
+        status += f"Time: {g.get_time_left():.0f}\n"
         status += f"{g.get_condition()}"
         
         self.status_label.set_text(status)
@@ -853,30 +853,27 @@ class App(BaseApp):
         
         # 3-COLUMN LAYOUT: (Log+Cmd) | Status | SRS
         
-        # LEFT COLUMN: Message log and command input
+        # LEFT COLUMN: Message log and command input (wider)
         # Message log - very short to fit command line
         self.log_label = lvgl.label(self.p.content)
         self.log_label.set_pos(2, 2)
-        self.log_label.set_width(150)
         self.log_label.set_text("")
         
         # Command input - VERY HIGH UP! Position at Y=80
         self.command_label = lvgl.label(self.p.content)
         self.command_label.set_pos(2, 80)
-        self.command_label.set_width(150)
         self.command_label.set_text(">_")
         
-        # MIDDLE: Vertical status display (wider for full labels)
+        # MIDDLE: Vertical status display - no width constraint
         self.status_label = lvgl.label(self.p.content)
-        self.status_label.set_pos(155, 2)
-        self.status_label.set_width(85)
+        self.status_label.set_pos(180, 2)
         self.status_label.set_text("STATUS")
         
-        # FAR RIGHT: Graphical SRS grid - all the way to right edge
+        # FAR RIGHT: Graphical SRS grid - pushed to right edge
         # 8x8 grid of 8x8 pixel squares = 64x64 total
         self.srs_grid = []
         cell_size = 8
-        start_x = 305  # Push to very right edge (adjusted for wider status)
+        start_x = 330  # Push to very right edge (display is 428px wide)
         start_y = 2
         
         for y in range(8):
