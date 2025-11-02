@@ -507,9 +507,8 @@ class App(BaseApp):
         self.message_log = []
         self.max_messages = 50
         
-        # Command history for scrolling
-        self.command_history = []
-        self.history_index = -1
+        # Message log scrolling
+        self.message_scroll_offset = 0  # 0 = showing latest messages
         
         # UI elements
         self.srs_grid = []  # 8x8 grid of small rectangles
@@ -527,14 +526,15 @@ class App(BaseApp):
         self.message_log.append(msg)
         if len(self.message_log) > self.max_messages:
             self.message_log.pop(0)
-        self.update_log_display()
+        # Auto-scroll to latest if already at latest
+        if self.message_scroll_offset == 0:
+            self.update_log_display()
+        # Otherwise keep current scroll position (user is reading history)
 
     def execute_command(self, cmd):
         """Execute a game command."""
-        # Add to history
-        if cmd and cmd != "":
-            self.command_history.append(cmd)
-            self.history_index = -1
+        # Reset scroll to latest messages when executing command
+        self.message_scroll_offset = 0
         
         parts = cmd.upper().split()
         if not parts:
@@ -629,7 +629,7 @@ class App(BaseApp):
             self.log("TOR <c>: Fire Torpedo")
             self.log("SHE <a>: Set Shields")
             self.log("SRS/LRS/STA/DAM: Info")
-            self.log("UP/DOWN: Command History")
+            self.log("UP/DOWN: Scroll Messages")
         
         else:
             self.log(f"UNKNOWN: {command}")
@@ -678,10 +678,28 @@ class App(BaseApp):
         if not self.log_label:
             return
         
-        # Show only 5 messages with blank line at end for command line at Y=80
-        display_msgs = self.message_log[-5:]
-        # Add blank line after messages to separate from command
-        self.log_label.set_text("\n".join(display_msgs) + "\n")
+        # Show 5 messages with scroll offset
+        num_to_show = 5
+        total_messages = len(self.message_log)
+        
+        if total_messages == 0:
+            self.log_label.set_text("")
+            return
+        
+        # Calculate which messages to show based on scroll offset
+        # offset 0 = latest messages, offset increases = older messages
+        end_idx = total_messages - self.message_scroll_offset
+        start_idx = max(0, end_idx - num_to_show)
+        
+        display_msgs = self.message_log[start_idx:end_idx]
+        
+        # Show scroll indicator if not at latest
+        if self.message_scroll_offset > 0:
+            text = "\n".join(display_msgs) + f"\n[^{self.message_scroll_offset}]"
+        else:
+            text = "\n".join(display_msgs) + "\n"
+        
+        self.log_label.set_text(text)
 
     def update_command_display(self):
         """Update command input display."""
@@ -780,28 +798,20 @@ class App(BaseApp):
             
             elif key == "\x1b":  # Escape
                 self.command_buffer = ""
-                self.history_index = -1
                 self.update_command_display()
             
-            elif key == "`UP":  # Arrow Up - previous command
-                if self.command_history:
-                    if self.history_index == -1:
-                        self.history_index = len(self.command_history) - 1
-                    elif self.history_index > 0:
-                        self.history_index -= 1
-                    self.command_buffer = self.command_history[self.history_index]
-                    self.update_command_display()
+            elif key == "`j":  # Arrow Up - scroll back through messages
+                # Increase offset to show older messages
+                max_offset = max(0, len(self.message_log) - 1)
+                if self.message_scroll_offset < max_offset:
+                    self.message_scroll_offset += 1
+                    self.update_log_display()
             
-            elif key == "`DOWN":  # Arrow Down - next command
-                if self.command_history:
-                    if self.history_index >= 0:
-                        if self.history_index < len(self.command_history) - 1:
-                            self.history_index += 1
-                            self.command_buffer = self.command_history[self.history_index]
-                        else:
-                            self.history_index = -1
-                            self.command_buffer = ""
-                        self.update_command_display()
+            elif key == "`k":  # Arrow Down - scroll forward through messages
+                # Decrease offset to show newer messages
+                if self.message_scroll_offset > 0:
+                    self.message_scroll_offset -= 1
+                    self.update_log_display()
             
             elif key.startswith("`"):  # Other special keys
                 pass
