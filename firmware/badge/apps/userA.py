@@ -511,7 +511,9 @@ class App(BaseApp):
         self.message_scroll_offset = 0  # 0 = showing latest messages
         
         # UI elements
-        self.srs_grid = []  # 8x8 grid of small rectangles
+        self.srs_grid = []  # 8x8 grid of small rectangles for SRS
+        self.lrs_grid = []  # 3x3 grid for LRS display
+        self.grid_mode = "SRS"  # "SRS" or "LRS"
         self.status_label = None
         self.log_label = None
         self.command_label = None
@@ -554,6 +556,9 @@ class App(BaseApp):
                         attack_msgs = self.game.klingon_attack()
                         for msg in attack_msgs:
                             self.log(msg)
+                    # Switch back to SRS after navigation
+                    if self.grid_mode == "LRS":
+                        self.switch_to_srs()
                     self.update_all_displays()
                 except ValueError:
                     self.log("NAV <course> <warp>")
@@ -561,11 +566,10 @@ class App(BaseApp):
                 self.log("NAV <course> <warp>")
         
         elif command in ['SRS', 'S']:
-            self.update_srs_display()
-            self.log("SHORT RANGE SCAN")
+            self.switch_to_srs()
         
         elif command in ['LRS', 'L']:
-            self.show_lrs()
+            self.switch_to_lrs()
         
         elif command in ['PHA', 'P']:
             if len(parts) >= 2:
@@ -655,6 +659,87 @@ class App(BaseApp):
                 symbol = self.game.quadrant_map[y][x]
                 color = colors.get(symbol, colors[' '])
                 self.srs_grid[idx].set_style_bg_color(color, 0)
+    
+    def update_lrs_display(self):
+        """Update long range scan display."""
+        if not self.lrs_grid:
+            return
+        
+        qx = self.game.quad_x
+        qy = self.game.quad_y
+        
+        # Show 3x3 grid centered on current quadrant
+        for dy in range(-1, 2):
+            for dx in range(-1, 2):
+                grid_idx = (dy + 1) * 3 + (dx + 1)
+                container, label = self.lrs_grid[grid_idx]
+                
+                check_x = qx + dx - 1  # Adjust for 1-based indexing
+                check_y = qy + dy - 1
+                
+                # Check if in bounds
+                if 0 <= check_x < 8 and 0 <= check_y < 8:
+                    val = self.game.galaxy[check_y][check_x]
+                    # Extract KBS from integer format (e.g. 205 = 2K, 0B, 5S)
+                    k = val // 100
+                    b = (val % 100) // 10
+                    s = val % 10
+                    
+                    # Show KBS format
+                    label.set_text(f"{k}{b}{s}")
+                    
+                    # Highlight current quadrant
+                    if dx == 0 and dy == 0:
+                        container.set_style_border_color(lvgl.color_hex(0xFFFF00), 0)
+                        container.set_style_border_width(2, 0)
+                    else:
+                        container.set_style_border_color(lvgl.color_hex(0x00FF00), 0)
+                        container.set_style_border_width(1, 0)
+                else:
+                    # Out of bounds
+                    label.set_text("///")
+                    container.set_style_border_color(lvgl.color_hex(0x808080), 0)
+                    container.set_style_border_width(1, 0)
+    
+    def switch_to_srs(self):
+        """Switch to SRS mode."""
+        self.grid_mode = "SRS"
+        
+        # Show SRS grid - move to visible position
+        cell_size = 10
+        start_x = 320
+        start_y = 2
+        for idx, cell in enumerate(self.srs_grid):
+            y = idx // 8
+            x = idx % 8
+            cell.set_pos(start_x + x * cell_size, start_y + y * cell_size)
+        
+        # Hide LRS grid - move off screen
+        for container, label in self.lrs_grid:
+            container.set_pos(-100, -100)
+        
+        self.update_srs_display()
+        self.log("SHORT RANGE SCAN")
+    
+    def switch_to_lrs(self):
+        """Switch to LRS mode."""
+        self.grid_mode = "LRS"
+        
+        # Hide SRS grid - move off screen
+        for cell in self.srs_grid:
+            cell.set_pos(-100, -100)
+        
+        # Show LRS grid - move to visible position
+        lrs_cell_size = 32
+        start_x = 320
+        start_y = 2
+        for idx, (container, label) in enumerate(self.lrs_grid):
+            y = idx // 3
+            x = idx % 3
+            container.set_pos(start_x + x * lrs_cell_size, start_y + y * lrs_cell_size)
+        
+        self.update_lrs_display()
+        self.log("LONG RANGE SCAN")
 
     def update_status_display(self):
         """Update status display."""
@@ -708,7 +793,12 @@ class App(BaseApp):
 
     def update_all_displays(self):
         """Update all displays."""
-        self.update_srs_display()
+        # Update the active grid based on mode
+        if self.grid_mode == "SRS":
+            self.update_srs_display()
+        else:
+            self.update_lrs_display()
+        
         self.update_status_display()
         self.update_log_display()
         
@@ -880,10 +970,10 @@ class App(BaseApp):
         self.status_label.set_text("STATUS")
         
         # FAR RIGHT: Graphical SRS grid - pushed to right edge
-        # 8x8 grid of 8x8 pixel squares = 64x64 total
+        # 8x8 grid of 10x10 pixel squares = 80x80 total
         self.srs_grid = []
-        cell_size = 8
-        start_x = 330  # Push to very right edge (display is 428px wide)
+        cell_size = 10
+        start_x = 320  # Push to very right edge (display is 428px wide)
         start_y = 2
         
         for y in range(8):
@@ -896,6 +986,33 @@ class App(BaseApp):
                 cell.set_style_border_width(0, 0)
                 cell.set_style_pad_all(0, 0)
                 self.srs_grid.append(cell)
+        
+        # Create LRS grid (3x3 larger squares with labels) - same position
+        self.lrs_grid = []
+        lrs_cell_size = 32  # Bigger cells to fit 3-digit numbers
+        lrs_start_x = start_x
+        lrs_start_y = start_y
+        
+        for y in range(3):
+            for x in range(3):
+                # Container for each cell
+                container = lvgl.obj(self.p.content)
+                container.set_size(lrs_cell_size, lrs_cell_size)
+                container.set_pos(-100, -100)  # Start off-screen (hidden)
+                container.add_style(styles.base_style, 0)
+                container.set_style_border_width(1, 0)
+                container.set_style_border_color(lvgl.color_hex(0x00FF00), 0)
+                container.set_style_pad_all(0, 0)  # No padding for more space
+                container.set_style_bg_color(lvgl.color_hex(0x000000), 0)
+                
+                # Label inside the cell
+                label = lvgl.label(container)
+                label.set_text("")
+                label.set_style_text_color(lvgl.color_hex(0x00FF00), 0)
+                label.set_style_text_font(lvgl.font_montserrat_14, 0)  # Slightly larger font
+                label.align(lvgl.ALIGN.CENTER, 0, 0)
+                
+                self.lrs_grid.append((container, label))
         
         # Create menu bar with function key labels
         self.p.create_menubar(["SRS", "LRS", "Stat", "Dam", "Exit"])
@@ -915,6 +1032,7 @@ class App(BaseApp):
         """Clean up UI."""
         self.p = None
         self.srs_grid = []
+        self.lrs_grid = []
         self.status_label = None
         self.log_label = None
         self.command_label = None
