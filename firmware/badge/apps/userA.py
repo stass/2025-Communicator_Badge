@@ -763,8 +763,8 @@ class App(BaseApp):
         if not self.log_label:
             return
         
-        # Show 5 messages with scroll offset
-        num_to_show = 5
+        # Show 7 messages with scroll offset (more with smaller font)
+        num_to_show = 7
         total_messages = len(self.message_log)
         
         if total_messages == 0:
@@ -782,7 +782,7 @@ class App(BaseApp):
         if self.message_scroll_offset > 0:
             text = "\n".join(display_msgs) + f"\n[^{self.message_scroll_offset}]"
         else:
-            text = "\n".join(display_msgs) + "\n"
+            text = "\n".join(display_msgs)
         
         self.log_label.set_text(text)
 
@@ -960,7 +960,7 @@ class App(BaseApp):
         self.log_label.set_text("")
         self.log_label.set_style_text_font(lvgl.font_unscii_8, 0)  # Fixed-width font
         
-        # Command input - VERY HIGH UP! Position at Y=80
+        # Command input - Positioned closer to messages for more space
         self.command_label = lvgl.label(self.p.content)
         self.command_label.set_pos(2, 80)
         self.command_label.set_text(">_")
@@ -1026,6 +1026,12 @@ class App(BaseApp):
         for msg in msgs:
             self.log(msg)
         
+        # Display ASCII art of the Enterprise
+        self.log("    ___")
+        self.log(" __/   \\==")
+        self.log("|         )")
+        self.log(" \\___---==")
+        self.log("")
         self.log(f"DESTROY {self.game.klingons_total} KLINGONS")
         self.log(f"{self.game.time_limit} DAYS, {self.game.starbases_total} BASES")
         
