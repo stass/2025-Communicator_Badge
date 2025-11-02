@@ -880,16 +880,16 @@ class App(BaseApp):
                     self.execute_command(self.command_buffer)
                     self.command_buffer = ""
                     self.update_command_display()
-            
+                    
             elif key == "\b":  # Backspace
                 if self.command_buffer:
                     self.command_buffer = self.command_buffer[:-1]
                     self.update_command_display()
-            
+                    
             elif key == "\x1b":  # Escape
                 self.command_buffer = ""
                 self.update_command_display()
-            
+                
             elif key == "`j":  # Arrow Up - scroll back through messages
                 # Increase offset to show older messages
                 max_offset = max(0, len(self.message_log) - 1)
@@ -958,16 +958,19 @@ class App(BaseApp):
         self.log_label = lvgl.label(self.p.content)
         self.log_label.set_pos(2, 2)
         self.log_label.set_text("")
+        self.log_label.set_style_text_font(lvgl.font_unscii_8, 0)  # Fixed-width font
         
         # Command input - VERY HIGH UP! Position at Y=80
         self.command_label = lvgl.label(self.p.content)
         self.command_label.set_pos(2, 80)
         self.command_label.set_text(">_")
+        self.command_label.set_style_text_font(lvgl.font_unscii_8, 0)  # Fixed-width font
         
         # MIDDLE: Vertical status display - no width constraint
         self.status_label = lvgl.label(self.p.content)
         self.status_label.set_pos(180, 2)
         self.status_label.set_text("STATUS")
+        self.status_label.set_style_text_font(lvgl.font_unscii_8, 0)  # Fixed-width font
         
         # FAR RIGHT: Graphical SRS grid - pushed to right edge
         # 8x8 grid of 10x10 pixel squares = 80x80 total
@@ -1009,7 +1012,7 @@ class App(BaseApp):
                 label = lvgl.label(container)
                 label.set_text("")
                 label.set_style_text_color(lvgl.color_hex(0x00FF00), 0)
-                label.set_style_text_font(lvgl.font_montserrat_14, 0)  # Slightly larger font
+                label.set_style_text_font(lvgl.font_unscii_8, 0)  # Fixed-width font
                 label.align(lvgl.ALIGN.CENTER, 0, 0)
                 
                 self.lrs_grid.append((container, label))
