@@ -515,7 +515,7 @@ class App(BaseApp):
         self.lrs_grid = []  # 3x3 grid for LRS display
         self.grid_mode = "SRS"  # "SRS" or "LRS"
         self.status_pills = []  # LCARS-style status display pills
-        self.display_mode = "STATUS"  # "STATUS" or "DAMAGE"
+        self.display_mode = "STATUS"  # "STATUS", "DAMAGE", or "DETAIL"
         self.log_label = None
         self.command_label = None
         
@@ -722,6 +722,7 @@ class App(BaseApp):
         
         self.update_srs_display()
         self.update_status_display()  # Refresh status display
+        self.p.set_menubar_button_label(2, "STA")  # Reset F3 button to STA
         self.p.set_menubar_button_label(3, "DAM")  # Reset F4 button to DAM
         self.log("SHORT RANGE SCAN")
     
@@ -745,6 +746,7 @@ class App(BaseApp):
         
         self.update_lrs_display()
         self.update_status_display()  # Refresh status display
+        self.p.set_menubar_button_label(2, "STA")  # Reset F3 button to STA
         self.p.set_menubar_button_label(3, "DAM")  # Reset F4 button to DAM
         self.log("LONG RANGE SCAN")
 
@@ -756,6 +758,9 @@ class App(BaseApp):
         # Check display mode
         if self.display_mode == "DAMAGE":
             self.update_damage_display()
+            return
+        elif self.display_mode == "DETAIL":
+            self.update_detail_display()
             return
         
         g = self.game
@@ -861,6 +866,57 @@ class App(BaseApp):
                 value_label.set_style_text_color(lvgl.color_hex(color), 0)
                 bar.set_style_bg_color(lvgl.color_hex(color), 0)
                 cap.set_style_bg_color(lvgl.color_hex(color), 0)
+    
+    def update_detail_display(self):
+        """Update status display to show detailed status information."""
+        if not self.status_pills:
+            return
+        
+        g = self.game
+        condition = g.get_condition()
+        
+        # Detailed status labels and values
+        detail_labels = [
+            "QUADRANT",
+            "SECTOR",
+            "ENERGY",
+            "SHIELDS",
+            "TORPEDOS",
+            "KLINGONS",
+            "TIME LEFT"
+        ]
+        
+        detail_values = [
+            f"{g.quad_x},{g.quad_y}",
+            f"{g.sect_x},{g.sect_y}",
+            g.energy,
+            g.shields,
+            g.torpedoes,
+            g.klingons_total,
+            f"{g.get_time_left():.1f}"
+        ]
+        
+        # Colors for detail display
+        detail_colors = [0xFF9966, 0x9999FF, 0xCC99CC, 0xFFCC99, 0xFF9999, 0x99CCFF, 0xCCCCCC]
+        
+        # Update each pill with detailed info
+        for i, (value_container, value_label, bar, bar_label, cap) in enumerate(self.status_pills):
+            if i < len(detail_labels):
+                # Update label
+                bar_label.set_text(detail_labels[i])
+                
+                # Update value
+                value = detail_values[i]
+                if isinstance(value, (int, float)):
+                    value_label.set_text(str(int(value)))
+                else:
+                    value_label.set_text(str(value))
+                
+                # Set color
+                color = detail_colors[i]
+                value_label.set_style_text_color(lvgl.color_hex(color), 0)
+                bar.set_style_bg_color(lvgl.color_hex(color), 0)
+                cap.set_style_bg_color(lvgl.color_hex(color), 0)
 
     def update_log_display(self):
         """Update message log."""
@@ -913,20 +969,21 @@ class App(BaseApp):
                 self.log("=== GAME OVER ===")
 
     def show_status(self):
-        """Show detailed status."""
-        self.display_mode = "STATUS"
-        self.update_status_display()
-        self.p.set_menubar_button_label(3, "DAM")  # Reset F4 button to DAM
-        g = self.game
-        self.log(f"Stardate: {g.stardate:.1f}")
-        self.log(f"Condition: {g.get_condition()}")
-        self.log(f"Quadrant: {g.quad_x},{g.quad_y}")
-        self.log(f"Sector: {g.sect_x},{g.sect_y}")
-        self.log(f"Energy: {g.energy}")
-        self.log(f"Shields: {g.shields}")
-        self.log(f"Torpedoes: {g.torpedoes}")
-        self.log(f"Klingons: {g.klingons_total}")
-        self.log(f"Time Left: {g.get_time_left():.1f}")
+        """Toggle detailed status display."""
+        if self.display_mode == "DETAIL":
+            # Toggle back to normal status mode
+            self.display_mode = "STATUS"
+            self.update_status_display()
+            self.p.set_menubar_button_label(2, "STA")  # F3 button (0-indexed)
+            self.p.set_menubar_button_label(3, "DAM")  # Reset F4 button to DAM
+            self.log("STATUS DISPLAY")
+        else:
+            # Switch to detail mode
+            self.display_mode = "DETAIL"
+            self.update_status_display()
+            self.p.set_menubar_button_label(2, "Stat")  # F3 button (0-indexed)
+            self.p.set_menubar_button_label(3, "DAM")  # Reset F4 button to DAM
+            self.log("DETAILED STATUS")
 
     def show_damage(self):
         """Toggle damage report in status display."""
@@ -934,12 +991,14 @@ class App(BaseApp):
             # Toggle back to status mode
             self.display_mode = "STATUS"
             self.update_status_display()
+            self.p.set_menubar_button_label(2, "STA")  # Reset F3 button to STA
             self.p.set_menubar_button_label(3, "DAM")  # F4 button (0-indexed)
             self.log("STATUS DISPLAY")
         else:
             # Switch to damage mode
             self.display_mode = "DAMAGE"
             self.update_status_display()
+            self.p.set_menubar_button_label(2, "STA")  # Reset F3 button to STA
             self.p.set_menubar_button_label(3, "Stat")  # F4 button (0-indexed)
             self.log("DAMAGE REPORT")
 
