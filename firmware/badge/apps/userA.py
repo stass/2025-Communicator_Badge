@@ -708,7 +708,7 @@ class App(BaseApp):
         # Show SRS grid - move to visible position
         cell_size = 10
         start_x = 339  # Adjusted position
-        start_y = 2
+        start_y = 14  # Offset for top bar
         for idx, cell in enumerate(self.srs_grid):
             y = idx // 8
             x = idx % 8
@@ -732,7 +732,7 @@ class App(BaseApp):
         # Show LRS grid - move to visible position
         lrs_cell_size = 32
         start_x = 332  # Adjusted position
-        start_y = 2
+        start_y = 14  # Offset for top bar
         for idx, (container, label) in enumerate(self.lrs_grid):
             y = idx // 3
             x = idx % 3
@@ -981,30 +981,86 @@ class App(BaseApp):
         self.p = Page()
         
         # Create info bar
-        self.p.create_infobar(["USS ENTERPRISE", "NCC-1701"])
-        
-        # Create content area
+        # Create content area (no standard infobar - we use LCARS-styled top bar)
         self.p.create_content()
+        
+        # LCARS-style decorative borders (character-width for visibility)
+        # Left vertical border
+        left_border = lvgl.obj(self.p.content)
+        left_border.set_size(8, 120)
+        left_border.set_pos(0, 0)
+        left_border.add_style(styles.base_style, 0)
+        left_border.set_style_bg_color(lvgl.color_hex(0xFF9966), 0)  # LCARS orange
+        left_border.set_style_bg_opa(255, 0)
+        left_border.set_style_border_width(0, 0)
+        left_border.set_style_pad_all(0, 0)
+        left_border.set_style_radius(0, 0)
+        
+        # Top LCARS bar - integrated infobar (split into colored segments)
+        # Segment 1 - Left (orange, with USS ENTERPRISE text)
+        top_bar1 = lvgl.obj(self.p.content)
+        top_bar1.set_size(150, 12)
+        top_bar1.set_pos(8, 0)
+        top_bar1.add_style(styles.base_style, 0)
+        top_bar1.set_style_bg_color(lvgl.color_hex(0xFF9966), 0)  # LCARS orange
+        top_bar1.set_style_bg_opa(255, 0)
+        top_bar1.set_style_border_width(0, 0)
+        top_bar1.set_style_pad_all(0, 0)
+        top_bar1.set_style_radius(0, 0)
+        
+        top_bar1_label = lvgl.label(top_bar1)
+        top_bar1_label.set_text("USS ENTERPRISE")
+        top_bar1_label.set_style_text_color(lvgl.color_hex(0x000000), 0)
+        top_bar1_label.set_style_text_font(lvgl.font_unscii_8, 0)
+        top_bar1_label.align(lvgl.ALIGN.LEFT_MID, 2, 0)
+        
+        # Segment 2 - Middle (blue)
+        top_bar2 = lvgl.obj(self.p.content)
+        top_bar2.set_size(120, 12)
+        top_bar2.set_pos(160, 0)
+        top_bar2.add_style(styles.base_style, 0)
+        top_bar2.set_style_bg_color(lvgl.color_hex(0x9999FF), 0)  # LCARS blue
+        top_bar2.set_style_bg_opa(255, 0)
+        top_bar2.set_style_border_width(0, 0)
+        top_bar2.set_style_pad_all(0, 0)
+        top_bar2.set_style_radius(0, 0)
+        
+        # Segment 3 - Right (lavender, with NCC-1701 text)
+        top_bar3 = lvgl.obj(self.p.content)
+        top_bar3.set_size(150, 12)
+        top_bar3.set_pos(282, 0)
+        top_bar3.add_style(styles.base_style, 0)
+        top_bar3.set_style_bg_color(lvgl.color_hex(0xCC99CC), 0)  # LCARS lavender
+        top_bar3.set_style_bg_opa(255, 0)
+        top_bar3.set_style_border_width(0, 0)
+        top_bar3.set_style_pad_all(0, 0)
+        top_bar3.set_style_radius(0, 0)
+        
+        top_bar3_label = lvgl.label(top_bar3)
+        top_bar3_label.set_text("NCC-1701")
+        top_bar3_label.set_style_text_color(lvgl.color_hex(0x000000), 0)
+        top_bar3_label.set_style_text_font(lvgl.font_unscii_8, 0)
+        top_bar3_label.align(lvgl.ALIGN.RIGHT_MID, -2, 0)
         
         # 3-COLUMN LAYOUT: (Log+Cmd) | Status | SRS
         
         # LEFT COLUMN: Message log and command input (wider)
         # Message log - very short to fit command line
         self.log_label = lvgl.label(self.p.content)
-        self.log_label.set_pos(2, 2)
+        self.log_label.set_pos(10, 14)  # Offset for left border (8px) and top bar (12px)
         self.log_label.set_text("")
         self.log_label.set_style_text_font(lvgl.font_unscii_8, 0)  # Fixed-width font
         
         # Command input - Positioned closer to messages for more space
         self.command_label = lvgl.label(self.p.content)
-        self.command_label.set_pos(2, 80)
+        self.command_label.set_pos(10, 92)  # Adjusted for borders
         self.command_label.set_text(">_")
         self.command_label.set_style_text_font(lvgl.font_unscii_8, 0)  # Fixed-width font
         
         # MIDDLE: LCARS-style status display (authentic 3-part design)
         self.status_pills = []
         lcars_x = 185  # Adjusted position
-        lcars_y = 2
+        lcars_y = 14  # Offset for top bar
         lcars_height = 11
         lcars_spacing = 1
         
@@ -1075,7 +1131,7 @@ class App(BaseApp):
         self.srs_grid = []
         cell_size = 10
         start_x = 339  # Adjusted position (display is 428px wide)
-        start_y = 2
+        start_y = 14  # Offset for top bar
         
         for y in range(8):
             for x in range(8):
