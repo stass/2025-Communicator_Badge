@@ -514,7 +514,7 @@ class App(BaseApp):
         self.srs_grid = []  # 8x8 grid of small rectangles for SRS
         self.lrs_grid = []  # 3x3 grid for LRS display
         self.grid_mode = "SRS"  # "SRS" or "LRS"
-        self.status_label = None
+        self.status_pills = []  # LCARS-style status display pills
         self.log_label = None
         self.command_label = None
         
@@ -707,7 +707,7 @@ class App(BaseApp):
         
         # Show SRS grid - move to visible position
         cell_size = 10
-        start_x = 320
+        start_x = 330  # Shifted 10px right
         start_y = 2
         for idx, cell in enumerate(self.srs_grid):
             y = idx // 8
@@ -731,7 +731,7 @@ class App(BaseApp):
         
         # Show LRS grid - move to visible position
         lrs_cell_size = 32
-        start_x = 320
+        start_x = 330  # Shifted 10px right
         start_y = 2
         for idx, (container, label) in enumerate(self.lrs_grid):
             y = idx // 3
@@ -742,21 +742,46 @@ class App(BaseApp):
         self.log("LONG RANGE SCAN")
 
     def update_status_display(self):
-        """Update status display."""
-        if not self.status_label:
+        """Update LCARS-style status pills."""
+        if not self.status_pills:
             return
         
         g = self.game
-        # Full word labels on single lines
-        status = f"Stardate: {g.stardate:.0f}\n"
-        status += f"Energy: {g.energy}\n"
-        status += f"Shields: {g.shields}\n"
-        status += f"Torpedos: {g.torpedoes}\n"
-        status += f"Klingons: {g.klingons_total}\n"
-        status += f"Time: {g.get_time_left():.0f}\n"
-        status += f"{g.get_condition()}"
+        condition = g.get_condition()
         
-        self.status_label.set_text(status)
+        # Update each pill with its value (full labels)
+        status_values = [
+            f"STARDATE: {g.stardate:.0f}",
+            f"ENERGY: {g.energy}",
+            f"SHIELDS: {g.shields}",
+            f"TORPEDOS: {g.torpedoes}",
+            f"KLINGONS: {g.klingons_total}",
+            f"TIME: {g.get_time_left():.0f}",
+            f"{condition}"
+        ]
+        
+        # Update labels
+        for i, (pill, label) in enumerate(self.status_pills):
+            if i < len(status_values):
+                label.set_text(status_values[i])
+        
+        # Update condition pill color dynamically
+        if len(self.status_pills) >= 7:
+            condition_pill, condition_label = self.status_pills[6]
+            
+            # Set color based on condition
+            if condition == "GREEN":
+                color = 0x00FF00  # Bright green
+            elif condition == "YELLOW":
+                color = 0xFFFF00  # Bright yellow
+            elif condition == "RED":
+                color = 0xFF0000  # Bright red
+            elif condition == "DOCKED":
+                color = 0x00FFFF  # Cyan
+            else:
+                color = 0x808080  # Gray fallback
+            
+            condition_pill.set_style_bg_color(lvgl.color_hex(color), 0)
 
     def update_log_display(self):
         """Update message log."""
@@ -966,17 +991,53 @@ class App(BaseApp):
         self.command_label.set_text(">_")
         self.command_label.set_style_text_font(lvgl.font_unscii_8, 0)  # Fixed-width font
         
-        # MIDDLE: Vertical status display - no width constraint
-        self.status_label = lvgl.label(self.p.content)
-        self.status_label.set_pos(180, 2)
-        self.status_label.set_text("STATUS")
-        self.status_label.set_style_text_font(lvgl.font_unscii_8, 0)  # Fixed-width font
+        # MIDDLE: LCARS-style status pills (smaller for better fit)
+        self.status_pills = []
+        pill_x = 180
+        pill_y = 2
+        pill_width = 130
+        pill_height = 9  # Smaller height
+        pill_spacing = 1  # Tighter spacing
+        
+        # LCARS-inspired colors (condition pill will be dynamic)
+        lcars_colors = [
+            0xFF9966,  # Orange - Stardate
+            0xCC99CC,  # Lavender - Energy
+            0x9999FF,  # Light blue - Shields
+            0xFFCC99,  # Peach - Torpedoes
+            0xFF6666,  # Red - Klingons
+            0x99CCFF,  # Sky blue - Time
+            0x808080,  # Gray - Condition (will be updated dynamically)
+        ]
+        
+        status_labels = ["STARDATE", "ENERGY", "SHIELDS", "TORPEDOS", "KLINGONS", "TIME", "CONDITION"]
+        
+        for i, (label_text, color) in enumerate(zip(status_labels, lcars_colors)):
+            # Create rounded rectangle container (pill)
+            pill = lvgl.obj(self.p.content)
+            pill.set_size(pill_width, pill_height)
+            pill.set_pos(pill_x, pill_y + i * (pill_height + pill_spacing))
+            pill.add_style(styles.base_style, 0)
+            pill.set_style_radius(4, 0)  # Slightly smaller rounded corners
+            pill.set_style_bg_color(lvgl.color_hex(color), 0)
+            pill.set_style_bg_opa(255, 0)
+            pill.set_style_border_width(0, 0)
+            pill.set_style_pad_all(1, 0)
+            
+            # Label on top of pill (no font change - unscii_8 is already small)
+            label = lvgl.label(pill)
+            label.set_text(label_text)
+            label.set_style_text_color(lvgl.color_hex(0x000000), 0)  # Black text
+            label.set_style_text_font(lvgl.font_unscii_8, 0)
+            label.align(lvgl.ALIGN.LEFT_MID, 1, 0)
+            
+            self.status_pills.append((pill, label))
         
         # FAR RIGHT: Graphical SRS grid - pushed to right edge
         # 8x8 grid of 10x10 pixel squares = 80x80 total
         self.srs_grid = []
         cell_size = 10
-        start_x = 320  # Push to very right edge (display is 428px wide)
+        start_x = 330  # Shifted 10px right (display is 428px wide)
         start_y = 2
         
         for y in range(8):
@@ -1042,7 +1103,7 @@ class App(BaseApp):
         self.p = None
         self.srs_grid = []
         self.lrs_grid = []
-        self.status_label = None
+        self.status_pills = []
         self.log_label = None
         self.command_label = None
         super().switch_to_background()
