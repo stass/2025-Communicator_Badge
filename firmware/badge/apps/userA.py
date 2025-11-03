@@ -707,7 +707,7 @@ class App(BaseApp):
         
         # Show SRS grid - move to visible position
         cell_size = 10
-        start_x = 330  # Shifted 10px right
+        start_x = 339  # Adjusted position
         start_y = 2
         for idx, cell in enumerate(self.srs_grid):
             y = idx // 8
@@ -731,7 +731,7 @@ class App(BaseApp):
         
         # Show LRS grid - move to visible position
         lrs_cell_size = 32
-        start_x = 330  # Shifted 10px right
+        start_x = 332  # Adjusted position
         start_y = 2
         for idx, (container, label) in enumerate(self.lrs_grid):
             y = idx // 3
@@ -742,32 +742,39 @@ class App(BaseApp):
         self.log("LONG RANGE SCAN")
 
     def update_status_display(self):
-        """Update LCARS-style status pills."""
+        """Update LCARS-style status display."""
         if not self.status_pills:
             return
         
         g = self.game
         condition = g.get_condition()
         
-        # Update each pill with its value (full labels)
+        # Prepare values for display
         status_values = [
-            f"STARDATE: {g.stardate:.0f}",
-            f"ENERGY: {g.energy}",
-            f"SHIELDS: {g.shields}",
-            f"TORPEDOS: {g.torpedoes}",
-            f"KLINGONS: {g.klingons_total}",
-            f"TIME: {g.get_time_left():.0f}",
-            f"{condition}"
+            g.stardate,
+            g.energy,
+            g.shields,
+            g.torpedoes,
+            g.klingons_total,
+            g.get_time_left(),
+            condition
         ]
         
-        # Update labels
-        for i, (pill, label) in enumerate(self.status_pills):
+        # Update each LCARS element
+        for i, (value_container, value_label, bar, bar_label, cap) in enumerate(self.status_pills):
             if i < len(status_values):
-                label.set_text(status_values[i])
+                value = status_values[i]
+                # Format value based on type
+                if isinstance(value, float):
+                    value_label.set_text(f"{value:.0f}")
+                elif isinstance(value, str):
+                    value_label.set_text(value)
+                else:
+                    value_label.set_text(str(value))
         
-        # Update condition pill color dynamically
+        # Update condition color dynamically
         if len(self.status_pills) >= 7:
-            condition_pill, condition_label = self.status_pills[6]
+            value_container, value_label, bar, bar_label, cap = self.status_pills[6]
             
             # Set color based on condition
             if condition == "GREEN":
@@ -781,7 +788,10 @@ class App(BaseApp):
             else:
                 color = 0x808080  # Gray fallback
             
-            condition_pill.set_style_bg_color(lvgl.color_hex(color), 0)
+            # Update all parts with the new color
+            value_label.set_style_text_color(lvgl.color_hex(color), 0)
+            bar.set_style_bg_color(lvgl.color_hex(color), 0)
+            cap.set_style_bg_color(lvgl.color_hex(color), 0)
 
     def update_log_display(self):
         """Update message log."""
@@ -991,15 +1001,14 @@ class App(BaseApp):
         self.command_label.set_text(">_")
         self.command_label.set_style_text_font(lvgl.font_unscii_8, 0)  # Fixed-width font
         
-        # MIDDLE: LCARS-style status pills (smaller for better fit)
+        # MIDDLE: LCARS-style status display (authentic 3-part design)
         self.status_pills = []
-        pill_x = 180
-        pill_y = 2
-        pill_width = 130
-        pill_height = 9  # Smaller height
-        pill_spacing = 1  # Tighter spacing
+        lcars_x = 185  # Adjusted position
+        lcars_y = 2
+        lcars_height = 11
+        lcars_spacing = 1
         
-        # LCARS-inspired colors (condition pill will be dynamic)
+        # LCARS-inspired colors (condition will be dynamic)
         lcars_colors = [
             0xFF9966,  # Orange - Stardate
             0xCC99CC,  # Lavender - Energy
@@ -1013,31 +1022,59 @@ class App(BaseApp):
         status_labels = ["STARDATE", "ENERGY", "SHIELDS", "TORPEDOS", "KLINGONS", "TIME", "CONDITION"]
         
         for i, (label_text, color) in enumerate(zip(status_labels, lcars_colors)):
-            # Create rounded rectangle container (pill)
-            pill = lvgl.obj(self.p.content)
-            pill.set_size(pill_width, pill_height)
-            pill.set_pos(pill_x, pill_y + i * (pill_height + pill_spacing))
-            pill.add_style(styles.base_style, 0)
-            pill.set_style_radius(4, 0)  # Slightly smaller rounded corners
-            pill.set_style_bg_color(lvgl.color_hex(color), 0)
-            pill.set_style_bg_opa(255, 0)
-            pill.set_style_border_width(0, 0)
-            pill.set_style_pad_all(1, 0)
+            y_pos = lcars_y + i * (lcars_height + lcars_spacing)
             
-            # Label on top of pill (no font change - unscii_8 is already small)
-            label = lvgl.label(pill)
-            label.set_text(label_text)
-            label.set_style_text_color(lvgl.color_hex(0x000000), 0)  # Black text
-            label.set_style_text_font(lvgl.font_unscii_8, 0)
-            label.align(lvgl.ALIGN.LEFT_MID, 1, 0)
+            # Part 1: Value number (left side, right-aligned in a fixed width area)
+            value_container = lvgl.obj(self.p.content)
+            value_container.set_size(45, lcars_height)  # Widened for numbers
+            value_container.set_pos(lcars_x, y_pos)
+            value_container.add_style(styles.base_style, 0)
+            value_container.set_style_bg_opa(0, 0)  # Transparent background
+            value_container.set_style_border_width(0, 0)
+            value_container.set_style_pad_all(0, 0)
             
-            self.status_pills.append((pill, label))
+            value_label = lvgl.label(value_container)
+            value_label.set_text("0")
+            value_label.set_style_text_color(lvgl.color_hex(color), 0)
+            value_label.set_style_text_font(lvgl.font_unscii_8, 0)
+            value_label.align(lvgl.ALIGN.RIGHT_MID, -2, 0)  # Right-aligned
+            
+            # Part 2: Rectangle bar with label (reduced gap from number)
+            bar = lvgl.obj(self.p.content)
+            bar.set_size(85, lcars_height)
+            bar.set_pos(lcars_x + 51, y_pos)  # 45 + 6 gap (reduced from 10)
+            bar.add_style(styles.base_style, 0)
+            bar.set_style_radius(0, 0)  # No rounding - straight rectangle
+            bar.set_style_bg_color(lvgl.color_hex(color), 0)
+            bar.set_style_bg_opa(255, 0)
+            bar.set_style_border_width(0, 0)
+            bar.set_style_pad_all(1, 0)
+            
+            # Label on the bar
+            bar_label = lvgl.label(bar)
+            bar_label.set_text(label_text)
+            bar_label.set_style_text_color(lvgl.color_hex(0x000000), 0)  # Black text
+            bar_label.set_style_text_font(lvgl.font_unscii_8, 0)
+            bar_label.align(lvgl.ALIGN.LEFT_MID, 2, 0)
+            
+            # Part 3: End cap (right side only rounded)
+            cap = lvgl.obj(self.p.content)
+            cap.set_size(12, lcars_height)
+            cap.set_pos(lcars_x + 136, y_pos)  # 45 + 6 + 85
+            cap.add_style(styles.base_style, 0)
+            cap.set_style_radius(6, 0)  # This will round all corners, but visually only right is seen
+            cap.set_style_bg_color(lvgl.color_hex(color), 0)
+            cap.set_style_bg_opa(255, 0)
+            cap.set_style_border_width(0, 0)
+            cap.set_style_pad_all(0, 0)
+            
+            self.status_pills.append((value_container, value_label, bar, bar_label, cap))
         
         # FAR RIGHT: Graphical SRS grid - pushed to right edge
         # 8x8 grid of 10x10 pixel squares = 80x80 total
         self.srs_grid = []
         cell_size = 10
-        start_x = 330  # Shifted 10px right (display is 428px wide)
+        start_x = 339  # Adjusted position (display is 428px wide)
         start_y = 2
         
         for y in range(8):
