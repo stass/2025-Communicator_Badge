@@ -1026,12 +1026,12 @@ class App(BaseApp):
         for msg in msgs:
             self.log(msg)
         
-        # Display ASCII art of the Enterprise
-        self.log("    ___")
-        self.log(" __/   \\==")
-        self.log("|         )")
-        self.log(" \\___---==")
-        self.log("")
+        # Display ASCII art of the Enterprise (compact)
+        self.log("      ,---*---,")
+        self.log(",---   '--  ---'")
+        self.log(" '----- -'  / /")
+        self.log("  ,--'--/ /--,")
+        self.log("   '--------'")
         self.log(f"DESTROY {self.game.klingons_total} KLINGONS")
         self.log(f"{self.game.time_limit} DAYS, {self.game.starbases_total} BASES")
         
