@@ -515,6 +515,7 @@ class App(BaseApp):
         self.lrs_grid = []  # 3x3 grid for LRS display
         self.grid_mode = "SRS"  # "SRS" or "LRS"
         self.status_pills = []  # LCARS-style status display pills
+        self.display_mode = "STATUS"  # "STATUS" or "DAMAGE"
         self.log_label = None
         self.command_label = None
         
@@ -704,6 +705,7 @@ class App(BaseApp):
     def switch_to_srs(self):
         """Switch to SRS mode."""
         self.grid_mode = "SRS"
+        self.display_mode = "STATUS"  # Switch back to status display
         
         # Show SRS grid - move to visible position
         cell_size = 10
@@ -719,11 +721,14 @@ class App(BaseApp):
             container.set_pos(-100, -100)
         
         self.update_srs_display()
+        self.update_status_display()  # Refresh status display
+        self.p.set_menubar_button_label(3, "DAM")  # Reset F4 button to DAM
         self.log("SHORT RANGE SCAN")
     
     def switch_to_lrs(self):
         """Switch to LRS mode."""
         self.grid_mode = "LRS"
+        self.display_mode = "STATUS"  # Switch back to status display
         
         # Hide SRS grid - move off screen
         for cell in self.srs_grid:
@@ -739,6 +744,8 @@ class App(BaseApp):
             container.set_pos(start_x + x * lrs_cell_size, start_y + y * lrs_cell_size)
         
         self.update_lrs_display()
+        self.update_status_display()  # Refresh status display
+        self.p.set_menubar_button_label(3, "DAM")  # Reset F4 button to DAM
         self.log("LONG RANGE SCAN")
 
     def update_status_display(self):
@@ -746,8 +753,17 @@ class App(BaseApp):
         if not self.status_pills:
             return
         
+        # Check display mode
+        if self.display_mode == "DAMAGE":
+            self.update_damage_display()
+            return
+        
         g = self.game
         condition = g.get_condition()
+        
+        # Original status labels (restore if switched from damage mode)
+        status_labels = ["STARDATE", "ENERGY", "SHIELDS", "TORPEDOS", "KLINGONS", "TIME", "CONDITION"]
+        status_colors = [0xFF9966, 0x9999FF, 0xCC99CC, 0xFFCC99, 0xFF9999, 0x99CCFF, 0x808080]
         
         # Prepare values for display
         status_values = [
@@ -763,6 +779,10 @@ class App(BaseApp):
         # Update each LCARS element
         for i, (value_container, value_label, bar, bar_label, cap) in enumerate(self.status_pills):
             if i < len(status_values):
+                # Restore original label
+                bar_label.set_text(status_labels[i])
+                
+                # Update value
                 value = status_values[i]
                 # Format value based on type
                 if isinstance(value, float):
@@ -771,6 +791,13 @@ class App(BaseApp):
                     value_label.set_text(value)
                 else:
                     value_label.set_text(str(value))
+                
+                # Restore original color for non-condition pills
+                if i < 6:
+                    color = status_colors[i]
+                    value_label.set_style_text_color(lvgl.color_hex(color), 0)
+                    bar.set_style_bg_color(lvgl.color_hex(color), 0)
+                    cap.set_style_bg_color(lvgl.color_hex(color), 0)
         
         # Update condition color dynamically
         if len(self.status_pills) >= 7:
@@ -792,6 +819,48 @@ class App(BaseApp):
             value_label.set_style_text_color(lvgl.color_hex(color), 0)
             bar.set_style_bg_color(lvgl.color_hex(color), 0)
             cap.set_style_bg_color(lvgl.color_hex(color), 0)
+    
+    def update_damage_display(self):
+        """Update status display to show damage report."""
+        if not self.status_pills:
+            return
+        
+        g = self.game
+        
+        # Show first 7 devices (skip Library-Computer)
+        device_labels = [
+            "WARP ENG",
+            "SRS",
+            "LRS", 
+            "PHASERS",
+            "TORPED",
+            "DMG CTRL",
+            "SHIELDS"
+        ]
+        
+        # Update each pill with damage status
+        for i, (value_container, value_label, bar, bar_label, cap) in enumerate(self.status_pills):
+            if i < 7:
+                device_idx = i + 1  # Devices are indexed 1-8
+                dmg = g.damage[device_idx]
+                
+                # Update label
+                bar_label.set_text(device_labels[i])
+                
+                # Update value and color
+                if dmg >= 0:
+                    # Device is OK
+                    value_label.set_text("OK")
+                    color = 0x00FF00  # Green
+                else:
+                    # Device is damaged - show damage value (absolute value)
+                    value_label.set_text(f"{abs(dmg):.1f}")
+                    color = 0xFF0000  # Red
+                
+                # Update colors for all parts of this pill
+                value_label.set_style_text_color(lvgl.color_hex(color), 0)
+                bar.set_style_bg_color(lvgl.color_hex(color), 0)
+                cap.set_style_bg_color(lvgl.color_hex(color), 0)
 
     def update_log_display(self):
         """Update message log."""
@@ -845,6 +914,9 @@ class App(BaseApp):
 
     def show_status(self):
         """Show detailed status."""
+        self.display_mode = "STATUS"
+        self.update_status_display()
+        self.p.set_menubar_button_label(3, "DAM")  # Reset F4 button to DAM
         g = self.game
         self.log(f"Stardate: {g.stardate:.1f}")
         self.log(f"Condition: {g.get_condition()}")
@@ -857,13 +929,19 @@ class App(BaseApp):
         self.log(f"Time Left: {g.get_time_left():.1f}")
 
     def show_damage(self):
-        """Show damage report."""
-        self.log("DAMAGE REPORT:")
-        for i in range(1, 9):
-            dmg = self.game.damage[i]
-            status = "OK" if dmg >= 0 else f"DMG:{dmg:.1f}"
-            name = self.game.DEVICE_NAMES[i][:12]
-            self.log(f"{name} {status}")
+        """Toggle damage report in status display."""
+        if self.display_mode == "DAMAGE":
+            # Toggle back to status mode
+            self.display_mode = "STATUS"
+            self.update_status_display()
+            self.p.set_menubar_button_label(3, "DAM")  # F4 button (0-indexed)
+            self.log("STATUS DISPLAY")
+        else:
+            # Switch to damage mode
+            self.display_mode = "DAMAGE"
+            self.update_status_display()
+            self.p.set_menubar_button_label(3, "Stat")  # F4 button (0-indexed)
+            self.log("DAMAGE REPORT")
 
     def show_lrs(self):
         """Show long range scan."""
@@ -1172,7 +1250,7 @@ class App(BaseApp):
                 self.lrs_grid.append((container, label))
         
         # Create menu bar with function key labels
-        self.p.create_menubar(["SRS", "LRS", "Stat", "Dam", "Exit"])
+        self.p.create_menubar(["SRS", "LRS", "STA", "DAM", "Exit"])
         self.p.replace_screen()
         
         # Initialize game
